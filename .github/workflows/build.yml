@@ -25,7 +25,7 @@ jobs:
         with:
           python-version: '3.11'
 
-      - name: Install System Dependencies
+      - name: Install System Dependencies & Aidl
         run: |
           sudo apt-get update
           sudo apt-get install -y \
@@ -50,7 +50,8 @@ jobs:
             ccache \
             libgl1-mesa-dev \
             unzip \
-            zip
+            zip \
+            aidl
           sudo apt-get clean
 
       - name: Install Buildozer & Cython
@@ -58,29 +59,11 @@ jobs:
           pip install --upgrade pip
           pip install --upgrade "cython<3.0.0" buildozer
 
-      - name: Setup Android SDK Tools
-        env:
-          _JAVA_OPTIONS: "-Xmx2048m"
+      - name: Setup Android SDK Licenses & Tools
         run: |
-          mkdir -p ~/.android
-          touch ~/.android/repositories.cfg
-          
-          # 建立明確的 SDK 根目錄
-          mkdir -p $HOME/android-sdk/cmdline-tools
-          cd $HOME/android-sdk/cmdline-tools
-
-          # 下載最新的 Command Line Tools
-          curl -fL --retry 3 -o commandlinetools.zip https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip
-          unzip -q commandlinetools.zip
-          rm commandlinetools.zip
-
-          # 修正目錄名稱以符合 SDKManager 規範
-          rm -rf latest
-          mv cmdline-tools latest
-          
-          # 同意所有授權並安裝 build-tools 與 platform-tools (確保包含 aidl)
-          yes | $HOME/android-sdk/cmdline-tools/latest/bin/sdkmanager --sdk_root=$HOME/android-sdk --licenses || true
-          $HOME/android-sdk/cmdline-tools/latest/bin/sdkmanager --sdk_root=$HOME/android-sdk "build-tools;33.0.2" "platform-tools" "platforms;android-33"
+          # 自動同意預裝 SDK 的所有授權條款
+          yes | $ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager --licenses || true
+          $ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager "build-tools;33.0.2" "platforms;android-33"
 
       - name: Cache Buildozer & CCache
         uses: actions/cache@v4
@@ -94,13 +77,13 @@ jobs:
 
       - name: Build APK with Buildozer
         env:
-          ANDROID_HOME: /home/runner/android-sdk
-          ANDROID_SDK_ROOT: /home/runner/android-sdk
+          ANDROID_HOME: ${{ env.ANDROID_SDK_ROOT }}
+          ANDROID_SDK_ROOT: ${{ env.ANDROID_SDK_ROOT }}
           _JAVA_OPTIONS: "-Xmx2048m"
           MAKEFLAGS: "-j2"
         run: |
-          # 確保環境變數 PATH 能直接存取 SDK 的 build-tools
-          export PATH=$ANDROID_HOME/build-tools/33.0.2:$ANDROID_HOME/platform-tools:$PATH
+          # 將 build-tools 加入 PATH 確保系統抓得到 aidl
+          export PATH=$ANDROID_SDK_ROOT/build-tools/33.0.2:$PATH
           buildozer -v android debug
 
       - name: Upload APK Artifact
