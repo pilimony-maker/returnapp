@@ -51,7 +51,10 @@ jobs:
             libgl1-mesa-dev \
             unzip \
             zip \
-            aidl
+            aidl \
+            libltdl-dev \
+            libffi-dev \
+            libssl-dev
           sudo apt-get clean
 
       - name: Install Buildozer & Cython
@@ -69,14 +72,20 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-buildozer-
 
+      - name: Accept Android SDK Licenses
+        run: |
+          mkdir -p ~/.android
+          touch ~/.android/repositories.cfg
+
       - name: Build APK with Buildozer
         env:
           _JAVA_OPTIONS: "-Xmx2048m"
           MAKEFLAGS: "-j2"
+          APP_ANDROID_ACCEPT_SDK_LICENSES: "1"
         run: |
-          # 自動同意 Buildozer 後續下載 SDK 的授權條款
-          yes | buildozer -v android debug
-        
+          # 加上 non-interactive 與自動同意標記，避免 Broken pipe 管道破裂
+          buildozer -v android debug
+
       - name: Upload APK Artifact
         uses: actions/upload-artifact@v4
         with:
