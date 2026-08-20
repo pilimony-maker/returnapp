@@ -9,7 +9,7 @@ on:
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
 
     steps:
       - name: Checkout Repository
@@ -89,7 +89,6 @@ jobs:
           _JAVA_OPTIONS: "-Xmx2048m"
           MAKEFLAGS: "-j2"
           APP_ANDROID_ACCEPT_SDK_LICENSES: "1"
-          # Retry configurations for network downloads
           P4A_RELEASE_KEY: ""
           PIP_RETRIES: "10"
           PIP_TIMEOUT: "60"
