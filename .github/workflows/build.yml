@@ -26,9 +26,11 @@ jobs:
           python-version: '3.11'
 
       - name: Install System Dependencies & Aidl
+        env:
+          DEBIAN_FRONTEND: noninteractive
         run: |
-          sudo apt-get update
-          sudo apt-get install -y \
+          sudo apt-get update -o Acquire::Retries=5
+          sudo apt-get install -y -o Acquire::Retries=5 \
             git \
             ffmpeg \
             libsdl2-dev \
@@ -59,7 +61,7 @@ jobs:
 
       - name: Install Buildozer & Cython
         run: |
-          pip install --upgrade pip
+          python -m pip install --upgrade pip
           pip install --upgrade "cython<3.0.0" buildozer
 
       - name: Cache Buildozer & CCache
@@ -83,8 +85,7 @@ jobs:
           MAKEFLAGS: "-j2"
           APP_ANDROID_ACCEPT_SDK_LICENSES: "1"
         run: |
-          # 加上 non-interactive 與自動同意標記，避免 Broken pipe 管道破裂
-          buildozer -v android debug
+          yes | buildozer -v android debug
 
       - name: Upload APK Artifact
         uses: actions/upload-artifact@v4
