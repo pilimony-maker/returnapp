@@ -59,12 +59,6 @@ jobs:
           pip install --upgrade pip
           pip install --upgrade "cython<3.0.0" buildozer
 
-      - name: Setup Android SDK Licenses & Tools
-        run: |
-          # 自動同意預裝 SDK 的所有授權條款
-          yes | $ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager --licenses || true
-          $ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager "build-tools;33.0.2" "platforms;android-33"
-
       - name: Cache Buildozer & CCache
         uses: actions/cache@v4
         with:
@@ -77,15 +71,12 @@ jobs:
 
       - name: Build APK with Buildozer
         env:
-          ANDROID_HOME: ${{ env.ANDROID_SDK_ROOT }}
-          ANDROID_SDK_ROOT: ${{ env.ANDROID_SDK_ROOT }}
           _JAVA_OPTIONS: "-Xmx2048m"
           MAKEFLAGS: "-j2"
         run: |
-          # 將 build-tools 加入 PATH 確保系統抓得到 aidl
-          export PATH=$ANDROID_SDK_ROOT/build-tools/33.0.2:$PATH
-          buildozer -v android debug
-
+          # 自動同意 Buildozer 後續下載 SDK 的授權條款
+          yes | buildozer -v android debug
+        
       - name: Upload APK Artifact
         uses: actions/upload-artifact@v4
         with:
