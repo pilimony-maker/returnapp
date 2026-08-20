@@ -67,9 +67,14 @@ jobs:
           
           mkdir -p $HOME/android-sdk/cmdline-tools
           cd $HOME/android-sdk/cmdline-tools
-          curl -sS -o commandlinetools.zip https://dl.google.com/android/repository/commandlinetools-linux-9441835_latest.zip
+
+          # 採用 -fL 追蹤重導向並在下載失敗時回報，加上 --retry 避免網路不穩
+          curl -fL --retry 3 -o commandlinetools.zip https://dl.google.com/android/repository/commandlinetools-linux-9441835_latest.zip
           unzip -q commandlinetools.zip
           rm commandlinetools.zip
+
+          # 清理舊資料夾防止覆蓋錯誤
+          rm -rf latest
           mv cmdline-tools latest
           
           yes | $HOME/android-sdk/cmdline-tools/latest/bin/sdkmanager --licenses || true
