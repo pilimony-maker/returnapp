@@ -15,6 +15,11 @@ jobs:
       - name: Checkout Repository
         uses: actions/checkout@v4
 
+      - name: Set up Swap Space (防止記憶體不足 OOM Exit code 9)
+        uses: pierotofy/set-swap-space@v1.0
+        with:
+          swap-size-gb: 8
+
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
@@ -52,19 +57,17 @@ jobs:
           pip install --upgrade pip
           pip install --upgrade "cython<3.0.0" buildozer
 
-      - name: Setup Android SDK Tools (Install aidl & build-tools)
+      - name: Setup Android SDK Tools
         run: |
           mkdir -p ~/.android
           touch ~/.android/repositories.cfg
           
-          # 下載並解鎖 Android commandlinetools
           mkdir -p $HOME/android-sdk/cmdline-tools
           cd $HOME/android-sdk/cmdline-tools
           curl -o commandlinetools.zip https://dl.google.com/android/repository/commandlinetools-linux-9441835_latest.zip
           unzip commandlinetools.zip
           mv cmdline-tools latest
           
-          # 同意授權並安裝 build-tools (內含 aidl) 與 platform-tools
           yes | $HOME/android-sdk/cmdline-tools/latest/bin/sdkmanager --licenses || true
           $HOME/android-sdk/cmdline-tools/latest/bin/sdkmanager "build-tools;33.0.2" "platform-tools" "platforms;android-33"
 
@@ -72,6 +75,7 @@ jobs:
         env:
           ANDROID_HOME: ${{ github.workspace }}/../android-sdk
           ANDROID_SDK_ROOT: ${{ github.workspace }}/../android-sdk
+          MAKEFLAGS: "-j2"  # 限制最多 simultaneous 2 個核心編譯，降低記憶體峰值
         run: |
           buildozer -v android debug
 
