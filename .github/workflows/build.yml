@@ -43,19 +43,35 @@ jobs:
             cmake \
             ninja-build \
             ccache \
-            libgl1-mesa-dev
+            libgl1-mesa-dev \
+            unzip \
+            zip
 
       - name: Install Buildozer & Cython
         run: |
           pip install --upgrade pip
           pip install --upgrade "cython<3.0.0" buildozer
 
-      - name: Accept Android SDK Licenses
+      - name: Setup Android SDK Tools (Install aidl & build-tools)
         run: |
           mkdir -p ~/.android
           touch ~/.android/repositories.cfg
+          
+          # 下載並解鎖 Android commandlinetools
+          mkdir -p $HOME/android-sdk/cmdline-tools
+          cd $HOME/android-sdk/cmdline-tools
+          curl -o commandlinetools.zip https://dl.google.com/android/repository/commandlinetools-linux-9441835_latest.zip
+          unzip commandlinetools.zip
+          mv cmdline-tools latest
+          
+          # 同意授權並安裝 build-tools (內含 aidl) 與 platform-tools
+          yes | $HOME/android-sdk/cmdline-tools/latest/bin/sdkmanager --licenses || true
+          $HOME/android-sdk/cmdline-tools/latest/bin/sdkmanager "build-tools;33.0.2" "platform-tools" "platforms;android-33"
 
       - name: Build APK with Buildozer
+        env:
+          ANDROID_HOME: ${{ github.workspace }}/../android-sdk
+          ANDROID_SDK_ROOT: ${{ github.workspace }}/../android-sdk
         run: |
           buildozer -v android debug
 
