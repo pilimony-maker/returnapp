@@ -68,8 +68,8 @@ jobs:
           mkdir -p $HOME/android-sdk/cmdline-tools
           cd $HOME/android-sdk/cmdline-tools
 
-          # 採用 -fL 追蹤重導向並在下載失敗時回報，加上 --retry 避免網路不穩
-          curl -fL --retry 3 -o commandlinetools.zip https://dl.google.com/android/repository/commandlinetools-linux-9441835_latest.zip
+          # 使用修正後的官方最新 Command Line Tools (11076708) 下載連結
+          curl -fL --retry 3 -o commandlinetools.zip https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip
           unzip -q commandlinetools.zip
           rm commandlinetools.zip
 
