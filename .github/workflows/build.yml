@@ -15,7 +15,7 @@ jobs:
       - name: Checkout Repository
         uses: actions/checkout@v4
 
-      - name: Set up Swap Space (防止記憶體不足 OOM)
+      - name: Set up Swap Space
         uses: pierotofy/set-swap-space@v1.0
         with:
           swap-size-gb: 8
@@ -42,6 +42,9 @@ jobs:
             libavformat-dev \
             libavcodec-dev \
             zlib1g-dev \
+            libjpeg-dev \
+            libpng-dev \
+            libfreetype6-dev \
             openjdk-17-jdk \
             autoconf \
             automake \
@@ -56,7 +59,9 @@ jobs:
             aidl \
             libltdl-dev \
             libffi-dev \
-            libssl-dev
+            libssl-dev \
+            curl \
+            wget
           sudo apt-get clean
 
       - name: Install Buildozer & Cython
@@ -84,6 +89,10 @@ jobs:
           _JAVA_OPTIONS: "-Xmx2048m"
           MAKEFLAGS: "-j2"
           APP_ANDROID_ACCEPT_SDK_LICENSES: "1"
+          # Retry configurations for network downloads
+          P4A_RELEASE_KEY: ""
+          PIP_RETRIES: "10"
+          PIP_TIMEOUT: "60"
         run: |
           yes | buildozer -v android debug
 
