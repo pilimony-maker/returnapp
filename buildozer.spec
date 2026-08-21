@@ -21,6 +21,7 @@ permissions = CAMERA, FLASHLIGHT, WRITE_EXTERNAL_STORAGE, READ_EXTERNAL_STORAGE
 android.api = 33
 android.minapi = 24
 android.accept_sdk_license = True
+android.build_tools_version = 33.0.2
 android.ndk_api = 24
 
 # 2. 限制僅編譯 arm64-v8a 單一架構，大幅減少耗時與記憶體溢位 (OOM) 機率
