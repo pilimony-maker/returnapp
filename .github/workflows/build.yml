@@ -55,6 +55,11 @@ jobs:
         python -m pip install --upgrade pip setuptools wheel
         pip install "cython<3.0.0" buildozer kivy
 
+    - name: Install AIDL and Android Build-Tools
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y aidl android-sdk
+
     - name: Install Android Build-Tools (AIDL)
       run: |
         # 確保 SDKManager 可以正常運作並自動同意授權
@@ -64,15 +69,18 @@ jobs:
     - name: Build APK with Buildozer
       env:
         MAKEFLAGS: "-j2"
-        # 將系統的 Android SDK 路徑傳給 Buildozer
+        # 強制 Buildozer 使用 GitHub Runner 預裝且完整的 Android SDK
+        ANDROIDSDK: /usr/local/lib/android/sdk
         ANDROID_HOME: /usr/local/lib/android/sdk
         ANDROID_SDK_ROOT: /usr/local/lib/android/sdk
       run: |
-        # 建立自動同意 Android SDK 授權的目錄與標誌
+        # 自動同意授權並預先建立 cfg
         mkdir -p ~/.android
         touch ~/.android/repositories.cfg
-          
-        # 直接執行 Buildozer，不用 yes 命令串接
+        yes | /usr/local/lib/android/sdk/cmdline-tools/latest/bin/sdkmanager --licenses || true
+        /usr/local/lib/android/sdk/cmdline-tools/latest/bin/sdkmanager "build-tools;33.0.2" "platforms;android-33"
+        
+        # 執行 Buildozer 編譯
         buildozer -v android debug
 
     - name: Upload APK Artifact
