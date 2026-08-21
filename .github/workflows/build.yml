@@ -30,7 +30,6 @@ jobs:
           distribution: temurin
           java-version: "17"
 
-      # 補上編譯 Pandas 必須的 gfortran 與高級編譯套件
       - name: Install System Dependencies
         run: |
           sudo apt-get update
@@ -46,27 +45,28 @@ jobs:
           python -m pip install --upgrade pip setuptools wheel
           pip install "cython<3.0.0" "buildozer>=1.5.0" "kivy==2.3.0"
 
-      # 【核心新增】徹底清除上次殘留的 arm64 + armeabi 混合編譯快取，避免 toolchain 報錯
-       # 確保每一次都是最乾淨的單一架構狀態
       - name: Clear Buildozer Cache
         run: |
           rm -rf ~/.buildozer/
           rm -rf .buildozer/
           mkdir -p ~/.buildozer/android/platform/
 
-      # 建立全新的 Android SDK 橋梁結構
-      - name: Bridge System Android SDK to Buildozer
+      # 核心優化：同時橋接 SDK 與 Runner 內建的 NDK，徹底杜絕外部下載 502 網路錯誤
+      - name: Bridge System Android SDK and NDK to Buildozer
         run: |
           SYS_SDK="/usr/local/lib/android/sdk"
-          BZ_SDK="$HOME/.buildozer/android/platform/android-sdk"
+          BZ_PLATFORM="$HOME/.buildozer/android/platform"
+          BZ_SDK="$BZ_PLATFORM/android-sdk"
           
           mkdir -p "$BZ_SDK"
           mkdir -p ~/.android
           touch ~/.android/repositories.cfg
 
+          # 同意授權並安裝 build-tools
           yes | $SYS_SDK/cmdline-tools/latest/bin/sdkmanager --licenses || true
           $SYS_SDK/cmdline-tools/latest/bin/sdkmanager "build-tools;33.0.2" "platforms;android-33" "platform-tools"
 
+          # 建立 SDK 橋接軟連結
           ln -s $SYS_SDK/build-tools "$BZ_SDK/build-tools"
           ln -s $SYS_SDK/platforms "$BZ_SDK/platforms"
           ln -s $SYS_SDK/platform-tools "$BZ_SDK/platform-tools"
@@ -75,12 +75,22 @@ jobs:
           mkdir -p "$BZ_SDK/tools/bin"
           ln -sf $SYS_SDK/cmdline-tools/latest/bin/sdkmanager "$BZ_SDK/tools/bin/sdkmanager"
           
+          # 強制修復系統 aidl
           sudo ln -sf /usr/bin/aidl $SYS_SDK/build-tools/33.0.2/aidl || true
           ln -sf /usr/bin/aidl "$BZ_SDK/build-tools/33.0.2/aidl" || true
 
+          # 【抗 502 終極大招】：直接使用 GitHub 虛擬機內建的 NDK 25.x 軟連結過去，完全不下載
+          # 尋找系統自帶的 ndk 25 版本路徑
+          SYS_NDK_25=$(ls -d /usr/local/lib/android/sdk/ndk/25.* 2>/dev/null | head -n 1)
+          if [ -z "$SYS_NDK_25" ]; then
+            # 如果找不到 25，就拿系統預裝的預設 ndk 目錄
+            SYS_NDK_25=$(ls -d /usr/local/lib/android/sdk/ndk/* 2>/dev/null | head -n 1)
+          fi
+          echo "Using System NDK Path: $SYS_NDK_25"
+          ln -s "$SYS_NDK_25" "$BZ_PLATFORM/android-ndk-r25c"
+
       - name: Build APK with Buildozer
         env:
-          # 核心修正：改為 -j1 (單核心)，這能防止 pandas / opencv 在 C++ 模板展開時把記憶體爆掉
           MAKEFLAGS: "-j1"
           ANDROIDSDK: /home/runner/.buildozer/android/platform/android-sdk
           ANDROID_HOME: /home/runner/.buildozer/android/platform/android-sdk
