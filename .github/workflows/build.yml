@@ -16,12 +16,18 @@ jobs:
     - name: Set Swap Space
       uses: pierotofy/set-swap-space@v1.0
       with:
-        swap-size-gb: 8
+        swap-size-gb: 12
 
     - name: Setup Python
       uses: actions/setup-python@v5
       with:
         python-version: "3.11"
+
+    - name: Setup Java JDK
+      uses: actions/setup-java@v4
+      with:
+        distribution: 'temurin'
+        java-version: '17'
 
     - name: Install System Dependencies
       run: |
@@ -39,7 +45,6 @@ jobs:
           libavformat-dev \
           libavcodec-dev \
           zlib1g-dev \
-          openjdk-17-jdk \
           cmake \
           ninja-build \
           autoconf \
@@ -48,39 +53,29 @@ jobs:
           pkg-config \
           ccache \
           zip \
-          unzip
+          unzip \
+          libssl-dev \
+          aidl
 
     - name: Install Python Dependencies & Buildozer
       run: |
         python -m pip install --upgrade pip setuptools wheel
-        pip install "cython<3.0.0" buildozer kivy
+        pip install "cython<3.0.0" "buildozer>=1.5.0" kivy
 
-    - name: Install AIDL and Android Build-Tools
+    - name: Setup Android SDK Tools & Licenses
       run: |
-        sudo apt-get update
-        sudo apt-get install -y aidl android-sdk
-
-    - name: Install Android Build-Tools (AIDL)
-      run: |
-        # 確保 SDKManager 可以正常運作並自動同意授權
-        yes | /usr/local/lib/android/sdk/cmdline-tools/latest/bin/sdkmanager --licenses || true
-        /usr/local/lib/android/sdk/cmdline-tools/latest/bin/sdkmanager "build-tools;33.0.2" "platforms;android-33"
-       
-    - name: Build APK with Buildozer
-      env:
-        MAKEFLAGS: "-j2"
-        # 強制 Buildozer 使用 GitHub Runner 預裝且完整的 Android SDK
-        ANDROIDSDK: /usr/local/lib/android/sdk
-        ANDROID_HOME: /usr/local/lib/android/sdk
-        ANDROID_SDK_ROOT: /usr/local/lib/android/sdk
-      run: |
-        # 自動同意授權並預先建立 cfg
         mkdir -p ~/.android
         touch ~/.android/repositories.cfg
         yes | /usr/local/lib/android/sdk/cmdline-tools/latest/bin/sdkmanager --licenses || true
         /usr/local/lib/android/sdk/cmdline-tools/latest/bin/sdkmanager "build-tools;33.0.2" "platforms;android-33"
-        
-        # 執行 Buildozer 編譯
+
+    - name: Build APK with Buildozer
+      env:
+        MAKEFLAGS: "-j2"
+        ANDROIDSDK: /usr/local/lib/android/sdk
+        ANDROID_HOME: /usr/local/lib/android/sdk
+        ANDROID_SDK_ROOT: /usr/local/lib/android/sdk
+      run: |
         buildozer -v android debug
 
     - name: Upload APK Artifact
