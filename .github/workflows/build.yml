@@ -30,7 +30,6 @@ jobs:
           distribution: temurin
           java-version: "17"
 
-      # 調整 1：將系統的 aidl 及相關編譯工具直接裝好
       - name: Install System Dependencies
         run: |
           sudo apt-get update
@@ -46,31 +45,44 @@ jobs:
           python -m pip install --upgrade pip setuptools wheel
           pip install "cython<3.0.0" "buildozer>=1.5.0" "kivy==2.3.0"
 
-      # 調整 2：強化 Android SDK Tools 的路徑軟連結，確保 100% 繞過 Aidl 找不到的 Bug
-      - name: Setup Android SDK Tools & Fix Aidl
+      # 核心修復步驟：直接建立 Buildozer 預期的 SDK 結構，將系統 SDK 快取直接搬過去
+      - name: Bridge System Android SDK to Buildozer
         run: |
-          SDK_DIR="/usr/local/lib/android/sdk"
+          SYS_SDK="/usr/local/lib/android/sdk"
+          BZ_SDK="$HOME/.buildozer/android/platform/android-sdk"
+          
+          # 1. 建立 Buildozer 的 SDK 目錄
+          mkdir -p "$BZ_SDK"
           mkdir -p ~/.android
           touch ~/.android/repositories.cfg
 
-          # 自動同意系統預裝 SDK 的所有授權協議
-          yes | $SDK_DIR/cmdline-tools/latest/bin/sdkmanager --licenses || true
+          # 2. 自動同意系統 Android SDK 的所有授權
+          yes | $SYS_SDK/cmdline-tools/latest/bin/sdkmanager --licenses || true
           
-          # 安裝你在 spec 中要求的 33.0.2 版本 build-tools
-          $SDK_DIR/cmdline-tools/latest/bin/sdkmanager "build-tools;33.0.2" "platforms;android-33" "platform-tools"
+          # 3. 確保下載你 spec 指定的 33.0.2 工具組
+          $SYS_SDK/cmdline-tools/latest/bin/sdkmanager "build-tools;33.0.2" "platforms;android-33" "platform-tools"
 
-          # 終極修復：無論 Buildozer 怎麼找，強制在系統與它的預期快取目錄中建立 aidl 軟連結
-          sudo ln -sf /usr/bin/aidl $SDK_DIR/build-tools/33.0.2/aidl || true
-          mkdir -p ~/.buildozer/android/platform/android-sdk/build-tools/33.0.2/
-          ln -sf /usr/bin/aidl ~/.buildozer/android/platform/android-sdk/build-tools/33.0.2/aidl
+          # 4. 【高能核心】將 GitHub 系統內建的 SDK 工具全數以軟連結（Link）同步到 Buildozer 目錄中
+          ln -s $SYS_SDK/build-tools "$BZ_SDK/build-tools"
+          ln -s $SYS_SDK/platforms "$BZ_SDK/platforms"
+          ln -s $SYS_SDK/platform-tools "$BZ_SDK/platform-tools"
+          ln -s $SYS_SDK/cmdline-tools "$BZ_SDK/cmdline-tools"
+          
+          # 5. 滿足 Buildozer 尋找舊版老路徑 "tools/bin/sdkmanager" 的相容性偽裝
+          mkdir -p "$BZ_SDK/tools/bin"
+          ln -sf $SYS_SDK/cmdline-tools/latest/bin/sdkmanager "$BZ_SDK/tools/bin/sdkmanager"
+          
+          # 6. 強制把系統裝好的外部 aidl 硬塞進 build-tools 目錄，以絕後患
+          sudo ln -sf /usr/bin/aidl $SYS_SDK/build-tools/33.0.2/aidl || true
+          ln -sf /usr/bin/aidl "$BZ_SDK/build-tools/33.0.2/aidl" || true
 
-      # 調整 3：設定正確的環境變數，引導工具鏈
       - name: Build APK with Buildozer
         env:
           MAKEFLAGS: "-j2"
-          ANDROIDSDK: /usr/local/lib/android/sdk
-          ANDROID_HOME: /usr/local/lib/android/sdk
-          ANDROID_SDK_ROOT: /usr/local/lib/android/sdk
+          # 同步將所有環境變數強制導向被我們偽裝好的 Buildozer SDK 目錄
+          ANDROIDSDK: /home/runner/.buildozer/android/platform/android-sdk
+          ANDROID_HOME: /home/runner/.buildozer/android/platform/android-sdk
+          ANDROID_SDK_ROOT: /home/runner/.buildozer/android/platform/android-sdk
         run: |
           buildozer -v android debug
 
