@@ -7,7 +7,7 @@ source.include_exts = py,png,jpg,kv,atlas
 version = 1.0.0
 
 # 1. 修正 opencv 為 opencv-python，並加入 numpy（opencv 依賴）與 requests/certifi 確保編譯環境穩定
-requirements = python3,kivy==2.3.0,numpy,pillow,pandas,openpyxl,opencv-python
+requirements = python3,kivy==2.3.0,numpy,pillow,pandas,openpyxl,opencv
 
 orientation = portrait
 osx.kivy_version = 2.3.0
