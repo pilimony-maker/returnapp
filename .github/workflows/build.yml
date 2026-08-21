@@ -2,9 +2,7 @@ name: Build Android APK
 
 on:
   push:
-    branches: [ main, master ]
-  pull_request:
-    branches: [ main, master ]
+    branches: [ "main" ]
   workflow_dispatch:
 
 jobs:
@@ -12,92 +10,56 @@ jobs:
     runs-on: ubuntu-22.04
 
     steps:
-      - name: Checkout Repository
-        uses: actions/checkout@v4
+    - name: Checkout Repository
+      uses: actions/checkout@v4
 
-      - name: Set up Swap Space
-        uses: pierotofy/set-swap-space@v1.0
-        with:
-          swap-size-gb: 8
+    - name: Set Swap Space
+      uses: pierotofy/set-swap-space@v1.0
+      with:
+        swap-size-gb: 8
 
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.11'
+    - name: Setup Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: "3.11"
 
-      - name: Install System Dependencies & Aidl
-        env:
-          DEBIAN_FRONTEND: noninteractive
-        run: |
-          sudo apt-get update -o Acquire::Retries=5
-          sudo apt-get install -y -o Acquire::Retries=5 \
-            git \
-            ffmpeg \
-            libsdl2-dev \
-            libsdl2-image-dev \
-            libsdl2-mixer-dev \
-            libsdl2-ttf-dev \
-            libportmidi-dev \
-            libswscale-dev \
-            libavformat-dev \
-            libavcodec-dev \
-            zlib1g-dev \
-            libjpeg-dev \
-            libpng-dev \
-            libfreetype6-dev \
-            openjdk-17-jdk \
-            autoconf \
-            automake \
-            libtool \
-            pkg-config \
-            cmake \
-            ninja-build \
-            ccache \
-            libgl1-mesa-dev \
-            unzip \
-            zip \
-            aidl \
-            libltdl-dev \
-            libffi-dev \
-            libssl-dev \
-            curl \
-            wget
-          sudo apt-get clean
+    - name: Install System Dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y \
+          build-essential \
+          git \
+          ffmpeg \
+          libsdl2-dev \
+          libsdl2-image-dev \
+          libsdl2-mixin-dev \
+          libsdl2-ttf-dev \
+          libportmidi-dev \
+          libswscale-dev \
+          libavformat-dev \
+          libavcodec-dev \
+          zlib1g-dev \
+          openjdk-17-jdk \
+          cmake \
+          ninja-build \
+          autoconf \
+          automake \
+          libtool \
+          pkg-config \
+          ccache
 
-      - name: Install Buildozer & Cython
-        run: |
-          python -m pip install --upgrade pip
-          pip install --upgrade "cython<3.0.0" buildozer
+    - name: Install Python Dependencies & Buildozer
+      run: |
+        python -m pip install --upgrade pip setuptools wheel
+        pip install "cython<3.0.0" buildozer kivy
 
-      - name: Cache Buildozer & CCache
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/.buildozer
-            ~/.ccache
-          key: ${{ runner.os }}-buildozer-${{ hashFiles('buildozer.spec') }}
-          restore-keys: |
-            ${{ runner.os }}-buildozer-
+    - name: Build APK with Buildozer
+      run: |
+        # 自動同意 Android SDK 授權
+        yes | buildozer android debug
 
-      - name: Accept Android SDK Licenses
-        run: |
-          mkdir -p ~/.android
-          touch ~/.android/repositories.cfg
-
-      - name: Build APK with Buildozer
-        env:
-          _JAVA_OPTIONS: "-Xmx2048m"
-          MAKEFLAGS: "-j2"
-          APP_ANDROID_ACCEPT_SDK_LICENSES: "1"
-          P4A_RELEASE_KEY: ""
-          PIP_RETRIES: "10"
-          PIP_TIMEOUT: "60"
-        run: |
-          yes | buildozer -v android debug
-
-      - name: Upload APK Artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: app-debug-apk
-          path: bin/*.apk
-          retention-days: 7
+    - name: Upload APK Artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: app-debug-apk
+        path: bin/*.apk
