@@ -25,7 +25,7 @@ android.build_tools_version = 33.0.2
 android.ndk_api = 24
 
 # 指向 GitHub Actions 系統環境預裝的 SDK 路徑
-#android.sdk_path = /usr/local/lib/android/sdk
+android.sdk_path = /usr/local/lib/android/sdk
 
 # 2. 限制僅編譯 arm64-v8a 單一架構，大幅減少耗時與記憶體溢位 (OOM) 機率
 android.archs = arm64-v8a
