@@ -33,7 +33,6 @@ jobs:
       - name: Install System Dependencies
         run: |
           sudo apt-get update
-
           sudo apt-get install -y --no-install-recommends \
             build-essential \
             git \
@@ -57,98 +56,34 @@ jobs:
             pkg-config \
             ccache \
             zip \
-            unzip
+            unzip \
+            aidl
 
       - name: Install Python Dependencies
         run: |
           python -m pip install --upgrade pip setuptools wheel
-
           pip install \
             "cython<3.0.0" \
             "buildozer>=1.5.0" \
             "kivy==2.3.0"
 
-      - name: Clean Buildozer Cache
+      - name: Setup Android SDK Tools & Build-Tools
         run: |
-          rm -rf ~/.buildozer
-          rm -rf .buildozer
-
+          # 使用 GitHub Actions 預裝且完整的 Android SDK
+          SDK_DIR="/usr/local/lib/android/sdk"
           mkdir -p ~/.android
           touch ~/.android/repositories.cfg
 
-      - name: Initialize Buildozer Android Environment
-        run: |
-          buildozer -v android update
-
-      - name: Find Android SDK
-        run: |
-          echo "=== Buildozer Android directory ==="
-          find "$HOME/.buildozer/android" -maxdepth 4 -type d -print || true
-
-          echo "=== sdkmanager ==="
-          find "$HOME/.buildozer/android" -type f -name sdkmanager -print || true
-
-      - name: Setup Android SDK
-        run: |
-          SDK_DIR="$HOME/.buildozer/android/platform/android-sdk"
-
-          echo "SDK_DIR=$SDK_DIR"
-
-          if [ -x "$SDK_DIR/cmdline-tools/latest/bin/sdkmanager" ]; then
-            SDKMANAGER="$SDK_DIR/cmdline-tools/latest/bin/sdkmanager"
-          elif [ -x "$SDK_DIR/cmdline-tools/bin/sdkmanager" ]; then
-            SDKMANAGER="$SDK_DIR/cmdline-tools/bin/sdkmanager"
-          elif [ -x "$SDK_DIR/tools/bin/sdkmanager" ]; then
-            SDKMANAGER="$SDK_DIR/tools/bin/sdkmanager"
-          else
-            echo "ERROR: sdkmanager not found"
-            find "$HOME/.buildozer/android" -type f -name sdkmanager -print || true
-            exit 1
-          fi
-
-          echo "Using sdkmanager:"
-          echo "$SDKMANAGER"
-
-          yes | "$SDKMANAGER" \
-            --sdk_root="$SDK_DIR" \
-            --licenses || true
-
-          "$SDKMANAGER" \
-            --sdk_root="$SDK_DIR" \
-            "platform-tools" \
-            "platforms;android-33" \
-            "build-tools;33.0.2"
-
-      - name: Verify AIDL
-        run: |
-          SDK_DIR="$HOME/.buildozer/android/platform/android-sdk"
-          AIDL="$SDK_DIR/build-tools/33.0.2/aidl"
-
-          echo "=== Build Tools ==="
-          ls -la "$SDK_DIR/build-tools/33.0.2/" || true
-
-          echo "=== Search AIDL ==="
-          find "$SDK_DIR" -type f -name aidl -print || true
-
-          if [ ! -f "$AIDL" ]; then
-            echo "ERROR: AIDL not found"
-            exit 1
-          fi
-
-          chmod +x "$AIDL"
-
-          echo "AIDL found:"
-          ls -lh "$AIDL"
-
-          echo "AIDL version:"
-          "$AIDL" --version || true
+          # 自動同意 SDK 授權並安裝 build-tools (包含 aidl)
+          yes | $SDK_DIR/cmdline-tools/latest/bin/sdkmanager --licenses || true
+          $SDK_DIR/cmdline-tools/latest/bin/sdkmanager "build-tools;33.0.2" "platforms;android-33" "platform-tools"
 
       - name: Build APK with Buildozer
         env:
           MAKEFLAGS: "-j2"
-          ANDROIDSDK: /home/runner/.buildozer/android/platform/android-sdk
-          ANDROID_HOME: /home/runner/.buildozer/android/platform/android-sdk
-          ANDROID_SDK_ROOT: /home/runner/.buildozer/android/platform/android-sdk
+          ANDROIDSDK: /usr/local/lib/android/sdk
+          ANDROID_HOME: /usr/local/lib/android/sdk
+          ANDROID_SDK_ROOT: /usr/local/lib/android/sdk
         run: |
           buildozer -v android debug
 
