@@ -1,223 +1,160 @@
 name: Build Android APK
 
 on:
-push:
-branches:
-- main
-workflow_dispatch:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
 
 jobs:
-build:
-runs-on: ubuntu-22.04
+  build:
+    runs-on: ubuntu-22.04
 
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
 
-steps:
-  # --------------------------------------------------
-  # 1. Checkout
-  # --------------------------------------------------
-  - name: Checkout Repository
-    uses: actions/checkout@v4
+      - name: Set Swap Space
+        uses: pierotofy/set-swap-space@v1.0
+        with:
+          swap-size-gb: 12
 
-  # --------------------------------------------------
-  # 2. Increase swap space
-  # --------------------------------------------------
-  - name: Set Swap Space
-    uses: pierotofy/set-swap-space@v1.0
-    with:
-      swap-size-gb: 12
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
 
-  # --------------------------------------------------
-  # 3. Python
-  # --------------------------------------------------
-  - name: Setup Python
-    uses: actions/setup-python@v5
-    with:
-      python-version: "3.11"
+      - name: Setup Java JDK
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
 
-  # --------------------------------------------------
-  # 4. Java JDK 17
-  # --------------------------------------------------
-  - name: Setup Java JDK
-    uses: actions/setup-java@v4
-    with:
-      distribution: temurin
-      java-version: "17"
+      - name: Install System Dependencies
+        run: |
+          sudo apt-get update
 
-  # --------------------------------------------------
-  # 5. Linux build dependencies
-  # --------------------------------------------------
-  - name: Install System Dependencies
-    run: |
-      sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            build-essential \
+            git \
+            ffmpeg \
+            libsdl2-dev \
+            libsdl2-image-dev \
+            libsdl2-mixer-dev \
+            libsdl2-ttf-dev \
+            libportmidi-dev \
+            libswscale-dev \
+            libavformat-dev \
+            libavcodec-dev \
+            zlib1g-dev \
+            libffi-dev \
+            libssl-dev \
+            cmake \
+            ninja-build \
+            autoconf \
+            automake \
+            libtool \
+            pkg-config \
+            ccache \
+            zip \
+            unzip
 
-      sudo apt-get install -y --no-install-recommends \
-        build-essential \
-        git \
-        ffmpeg \
-        libsdl2-dev \
-        libsdl2-image-dev \
-        libsdl2-mixer-dev \
-        libsdl2-ttf-dev \
-        libportmidi-dev \
-        libswscale-dev \
-        libavformat-dev \
-        libavcodec-dev \
-        zlib1g-dev \
-        libffi-dev \
-        libssl-dev \
-        cmake \
-        ninja-build \
-        autoconf \
-        automake \
-        libtool \
-        pkg-config \
-        ccache \
-        zip \
-        unzip
+      - name: Install Python Dependencies
+        run: |
+          python -m pip install --upgrade pip setuptools wheel
 
-  # --------------------------------------------------
-  # 6. Python / Buildozer
-  # --------------------------------------------------
-  - name: Install Python Dependencies
-    run: |
-      python -m pip install --upgrade pip setuptools wheel
+          pip install \
+            "cython<3.0.0" \
+            "buildozer>=1.5.0" \
+            "kivy==2.3.0"
 
-      pip install \
-        "cython<3.0.0" \
-        "buildozer>=1.5.0" \
-        "kivy==2.3.0"
+      - name: Clean Buildozer Cache
+        run: |
+          rm -rf ~/.buildozer
+          rm -rf .buildozer
 
-  # --------------------------------------------------
-  # 7. Clean old Buildozer cache
-  #
-  # This is important for:
-  # "Aidl not found, please install it."
-  # --------------------------------------------------
-  - name: Clean Buildozer Cache
-    run: |
-      rm -rf ~/.buildozer
-      rm -rf .buildozer
+          mkdir -p ~/.android
+          touch ~/.android/repositories.cfg
 
-      mkdir -p ~/.android
-      touch ~/.android/repositories.cfg
+      - name: Initialize Buildozer Android Environment
+        run: |
+          buildozer -v android update
 
-  # --------------------------------------------------
-  # 8. Buildozer first initialization
-  #
-  # Let Buildozer download/manage its own Android SDK.
-  # Do NOT mix it with /usr/local/lib/android/sdk.
-  # --------------------------------------------------
-  - name: Initialize Buildozer Android Environment
-    env:
-      JAVA_HOME: ${{ env.JAVA_HOME_17_X64 }}
-    run: |
-      buildozer -v android update
+      - name: Find Android SDK
+        run: |
+          echo "=== Buildozer Android directory ==="
+          find "$HOME/.buildozer/android" -maxdepth 4 -type d -print || true
 
-  # --------------------------------------------------
-  # 9. Accept Android SDK licenses
-  # --------------------------------------------------
-  - name: Accept Android SDK Licenses
-    run: |
-      SDK_DIR="$HOME/.buildozer/android/platform/android-sdk"
+          echo "=== sdkmanager ==="
+          find "$HOME/.buildozer/android" -type f -name sdkmanager -print || true
 
-      echo "Android SDK:"
-      echo "$SDK_DIR"
+      - name: Setup Android SDK
+        run: |
+          SDK_DIR="$HOME/.buildozer/android/platform/android-sdk"
 
-      if [ -x "$SDK_DIR/cmdline-tools/latest/bin/sdkmanager" ]; then
-        SDKMANAGER="$SDK_DIR/cmdline-tools/latest/bin/sdkmanager"
-      elif [ -x "$SDK_DIR/cmdline-tools/bin/sdkmanager" ]; then
-        SDKMANAGER="$SDK_DIR/cmdline-tools/bin/sdkmanager"
-      elif [ -x "$SDK_DIR/tools/bin/sdkmanager" ]; then
-        SDKMANAGER="$SDK_DIR/tools/bin/sdkmanager"
-      else
-        echo "ERROR: sdkmanager not found"
-        find "$HOME/.buildozer/android" -maxdepth 5 -type f -name sdkmanager -print || true
-        exit 1
-      fi
+          echo "SDK_DIR=$SDK_DIR"
 
-      echo "Using sdkmanager:"
-      echo "$SDKMANAGER"
+          if [ -x "$SDK_DIR/cmdline-tools/latest/bin/sdkmanager" ]; then
+            SDKMANAGER="$SDK_DIR/cmdline-tools/latest/bin/sdkmanager"
+          elif [ -x "$SDK_DIR/cmdline-tools/bin/sdkmanager" ]; then
+            SDKMANAGER="$SDK_DIR/cmdline-tools/bin/sdkmanager"
+          elif [ -x "$SDK_DIR/tools/bin/sdkmanager" ]; then
+            SDKMANAGER="$SDK_DIR/tools/bin/sdkmanager"
+          else
+            echo "ERROR: sdkmanager not found"
+            find "$HOME/.buildozer/android" -type f -name sdkmanager -print || true
+            exit 1
+          fi
 
-      yes | "$SDKMANAGER" --sdk_root="$SDK_DIR" --licenses || true
+          echo "Using sdkmanager:"
+          echo "$SDKMANAGER"
 
-  # --------------------------------------------------
-  # 10. Explicitly install Android SDK packages
-  #
-  # build-tools contains the AIDL executable.
-  # --------------------------------------------------
-  - name: Install Android SDK Build Tools
-    run: |
-      SDK_DIR="$HOME/.buildozer/android/platform/android-sdk"
+          yes | "$SDKMANAGER" \
+            --sdk_root="$SDK_DIR" \
+            --licenses || true
 
-      if [ -x "$SDK_DIR/cmdline-tools/latest/bin/sdkmanager" ]; then
-        SDKMANAGER="$SDK_DIR/cmdline-tools/latest/bin/sdkmanager"
-      elif [ -x "$SDK_DIR/cmdline-tools/bin/sdkmanager" ]; then
-        SDKMANAGER="$SDK_DIR/cmdline-tools/bin/sdkmanager"
-      elif [ -x "$SDK_DIR/tools/bin/sdkmanager" ]; then
-        SDKMANAGER="$SDK_DIR/tools/bin/sdkmanager"
-      else
-        echo "ERROR: sdkmanager not found"
-        find "$HOME/.buildozer/android" -maxdepth 5 -type f -name sdkmanager -print || true
-        exit 1
-      fi
+          "$SDKMANAGER" \
+            --sdk_root="$SDK_DIR" \
+            "platform-tools" \
+            "platforms;android-33" \
+            "build-tools;33.0.2"
 
-      "$SDKMANAGER" \
-        --sdk_root="$SDK_DIR" \
-        "platform-tools" \
-        "platforms;android-33" \
-        "build-tools;33.0.2"
+      - name: Verify AIDL
+        run: |
+          SDK_DIR="$HOME/.buildozer/android/platform/android-sdk"
+          AIDL="$SDK_DIR/build-tools/33.0.2/aidl"
 
-  # --------------------------------------------------
-  # 11. Verify AIDL BEFORE Buildozer build
-  #
-  # If this fails, we know the problem is SDK/build-tools
-  # and not the application source code.
-  # --------------------------------------------------
-  - name: Verify Android AIDL
-    run: |
-      SDK_DIR="$HOME/.buildozer/android/platform/android-sdk"
+          echo "=== Build Tools ==="
+          ls -la "$SDK_DIR/build-tools/33.0.2/" || true
 
-      echo "Installed build-tools:"
-      find "$SDK_DIR/build-tools" -maxdepth 2 -type f -name aidl -print || true
+          echo "=== Search AIDL ==="
+          find "$SDK_DIR" -type f -name aidl -print || true
 
-      AIDL="$SDK_DIR/build-tools/33.0.2/aidl"
+          if [ ! -f "$AIDL" ]; then
+            echo "ERROR: AIDL not found"
+            exit 1
+          fi
 
-      if [ ! -f "$AIDL" ]; then
-        echo "ERROR: AIDL was not installed."
-        echo "Build-tools directory:"
-        find "$SDK_DIR/build-tools" -maxdepth 2 -type f -print || true
-        exit 1
-      fi
+          chmod +x "$AIDL"
 
-      if [ ! -x "$AIDL" ]; then
-        chmod +x "$AIDL"
-      fi
+          echo "AIDL found:"
+          ls -lh "$AIDL"
 
-      echo "AIDL found:"
-      ls -lh "$AIDL"
+          echo "AIDL version:"
+          "$AIDL" --version || true
 
-      echo "AIDL version:"
-      "$AIDL" --version || true
+      - name: Build APK with Buildozer
+        env:
+          MAKEFLAGS: "-j2"
+          ANDROIDSDK: /home/runner/.buildozer/android/platform/android-sdk
+          ANDROID_HOME: /home/runner/.buildozer/android/platform/android-sdk
+          ANDROID_SDK_ROOT: /home/runner/.buildozer/android/platform/android-sdk
+        run: |
+          buildozer -v android debug
 
-  # --------------------------------------------------
-  # 12. Build APK
-  # --------------------------------------------------
-  - name: Build APK with Buildozer
-    env:
-      MAKEFLAGS: "-j2"
-      ANDROIDSDK: ${{ github.workspace }}/.buildozer/android/platform/android-sdk
-      ANDROID_HOME: ${{ github.workspace }}/.buildozer/android/platform/android-sdk
-      ANDROID_SDK_ROOT: ${{ github.workspace }}/.buildozer/android/platform/android-sdk
-    run: |
-      buildozer -v android debug
-
-  # --------------------------------------------------
-  # 13. Upload APK
-  # --------------------------------------------------
-  - name: Upload APK Artifact
-    uses: actions/upload-artifact@v4
-    with:
-      name: app-debug-apk
-      path: bin/*.apk
-      if-no-files-found: error
-
+      - name: Upload APK Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-debug-apk
+          path: bin/*.apk
+          if-no-files-found: error
