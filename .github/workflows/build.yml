@@ -30,7 +30,7 @@ jobs:
           distribution: temurin
           java-version: "17"
 
-      - name: Install System Dependencies
+      - name: Install System Dependencies (Including AIDL)
         run: |
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends \
@@ -67,14 +67,13 @@ jobs:
             "buildozer>=1.5.0" \
             "kivy==2.3.0"
 
-      - name: Setup Android SDK Tools & Build-Tools
+      - name: Setup Android SDK Tools
         run: |
-          # 使用 GitHub Actions 預裝且完整的 Android SDK
           SDK_DIR="/usr/local/lib/android/sdk"
           mkdir -p ~/.android
           touch ~/.android/repositories.cfg
 
-          # 自動同意 SDK 授權並安裝 build-tools (包含 aidl)
+          # 自動同意 SDK 授權並安裝 build-tools
           yes | $SDK_DIR/cmdline-tools/latest/bin/sdkmanager --licenses || true
           $SDK_DIR/cmdline-tools/latest/bin/sdkmanager "build-tools;33.0.2" "platforms;android-33" "platform-tools"
 
