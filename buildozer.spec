@@ -1,3 +1,4 @@
+[app]
 title = 退貨清點APP
 package.name = returnqc
 package.domain = org.qc.app
@@ -5,7 +6,7 @@ source.dir = .
 source.include_exts = py,png,jpg,kv,atlas
 version = 1.0.0
 
-# 核心修正：調整第三方庫版本組合（numpy限制在舊版以相容pandas與opencv的Android Recipe）
+# 1. 指定包含 opencv (p4a 交叉編譯 recipe) 與必備庫
 requirements = python3,kivy==2.3.0,numpy==1.24.3,pillow,pandas,openpyxl,opencv
 
 orientation = portrait
