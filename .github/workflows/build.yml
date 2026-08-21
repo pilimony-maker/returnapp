@@ -47,10 +47,12 @@ jobs:
           pip install "cython<3.0.0" "buildozer>=1.5.0" "kivy==2.3.0"
 
       # 【核心新增】徹底清除上次殘留的 arm64 + armeabi 混合編譯快取，避免 toolchain 報錯
+       # 確保每一次都是最乾淨的單一架構狀態
       - name: Clear Buildozer Cache
         run: |
           rm -rf ~/.buildozer/
           rm -rf .buildozer/
+          mkdir -p ~/.buildozer/android/platform/
 
       # 建立全新的 Android SDK 橋梁結構
       - name: Bridge System Android SDK to Buildozer
@@ -62,34 +64,28 @@ jobs:
           mkdir -p ~/.android
           touch ~/.android/repositories.cfg
 
-          # 自動同意系統 Android SDK 的所有授權
           yes | $SYS_SDK/cmdline-tools/latest/bin/sdkmanager --licenses || true
-          
-          # 確保下載專案指定版本的工具
           $SYS_SDK/cmdline-tools/latest/bin/sdkmanager "build-tools;33.0.2" "platforms;android-33" "platform-tools"
 
-          # 建立虛擬軟連結橋接器
           ln -s $SYS_SDK/build-tools "$BZ_SDK/build-tools"
           ln -s $SYS_SDK/platforms "$BZ_SDK/platforms"
           ln -s $SYS_SDK/platform-tools "$BZ_SDK/platform-tools"
           ln -s $SYS_SDK/cmdline-tools "$BZ_SDK/cmdline-tools"
           
-          # 滿足舊版路徑檢查
           mkdir -p "$BZ_SDK/tools/bin"
           ln -sf $SYS_SDK/cmdline-tools/latest/bin/sdkmanager "$BZ_SDK/tools/bin/sdkmanager"
           
-          # 強制綁定系統外部 aidl
           sudo ln -sf /usr/bin/aidl $SYS_SDK/build-tools/33.0.2/aidl || true
           ln -sf /usr/bin/aidl "$BZ_SDK/build-tools/33.0.2/aidl" || true
 
       - name: Build APK with Buildozer
         env:
-          MAKEFLAGS: "-j2"
+          # 核心修正：改為 -j1 (單核心)，這能防止 pandas / opencv 在 C++ 模板展開時把記憶體爆掉
+          MAKEFLAGS: "-j1"
           ANDROIDSDK: /home/runner/.buildozer/android/platform/android-sdk
           ANDROID_HOME: /home/runner/.buildozer/android/platform/android-sdk
           ANDROID_SDK_ROOT: /home/runner/.buildozer/android/platform/android-sdk
         run: |
-          # 第一次跑全新環境乾淨編譯
           buildozer -v android debug
 
       - name: Upload APK Artifact
