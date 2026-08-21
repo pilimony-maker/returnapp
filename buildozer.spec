@@ -6,7 +6,7 @@ source.dir = .
 source.include_exts = py,png,jpg,kv,atlas
 version = 1.0.0
 
-# 1. 修正 opencv 為 opencv-python，並加入 numpy（opencv 依賴）與 requests/certifi 確保編譯環境穩定
+# 1. 指定包含 opencv (p4a 交叉編譯 recipe) 與必備庫
 requirements = python3,kivy==2.3.0,numpy,pillow,pandas,openpyxl,opencv
 
 orientation = portrait
@@ -23,12 +23,13 @@ android.minapi = 24
 android.accept_sdk_license = True
 android.build_tools_version = 33.0.2
 android.ndk_api = 24
-# 指向系統環境的 SDK 路徑
+
+# 指向 GitHub Actions 系統環境預裝的 SDK 路徑
 android.sdk_path = /usr/local/lib/android/sdk
 
 # 2. 限制僅編譯 arm64-v8a 單一架構，大幅減少耗時與記憶體溢位 (OOM) 機率
 android.archs = arm64-v8a
 
-# 3. 指定 NDK 版本與編譯選項
+# 3. 指定 NDK 版本與備份選項
 android.ndk = 25b
 android.allow_backup = True
