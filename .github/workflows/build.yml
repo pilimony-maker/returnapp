@@ -30,53 +30,41 @@ jobs:
           distribution: temurin
           java-version: "17"
 
-      - name: Install System Dependencies (Including AIDL)
+      # 調整 1：將系統的 aidl 及相關編譯工具直接裝好
+      - name: Install System Dependencies
         run: |
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends \
-            build-essential \
-            git \
-            ffmpeg \
-            libsdl2-dev \
-            libsdl2-image-dev \
-            libsdl2-mixer-dev \
-            libsdl2-ttf-dev \
-            libportmidi-dev \
-            libswscale-dev \
-            libavformat-dev \
-            libavcodec-dev \
-            zlib1g-dev \
-            libffi-dev \
-            libssl-dev \
-            cmake \
-            ninja-build \
-            autoconf \
-            automake \
-            libtool \
-            pkg-config \
-            ccache \
-            zip \
-            unzip \
-            aidl
+            build-essential git ffmpeg libsdl2-dev libsdl2-image-dev \
+            libsdl2-mixer-dev libsdl2-ttf-dev libportmidi-dev libswscale-dev \
+            libavformat-dev libavcodec-dev zlib1g-dev libffi-dev libssl-dev \
+            cmake ninja-build autoconf automake libtool pkg-config ccache \
+            zip unzip aidl libstdc++6
 
       - name: Install Python Dependencies
         run: |
           python -m pip install --upgrade pip setuptools wheel
-          pip install \
-            "cython<3.0.0" \
-            "buildozer>=1.5.0" \
-            "kivy==2.3.0"
+          pip install "cython<3.0.0" "buildozer>=1.5.0" "kivy==2.3.0"
 
-      - name: Setup Android SDK Tools
+      # 調整 2：強化 Android SDK Tools 的路徑軟連結，確保 100% 繞過 Aidl 找不到的 Bug
+      - name: Setup Android SDK Tools & Fix Aidl
         run: |
           SDK_DIR="/usr/local/lib/android/sdk"
           mkdir -p ~/.android
           touch ~/.android/repositories.cfg
 
-          # 自動同意 SDK 授權並安裝 build-tools
+          # 自動同意系統預裝 SDK 的所有授權協議
           yes | $SDK_DIR/cmdline-tools/latest/bin/sdkmanager --licenses || true
+          
+          # 安裝你在 spec 中要求的 33.0.2 版本 build-tools
           $SDK_DIR/cmdline-tools/latest/bin/sdkmanager "build-tools;33.0.2" "platforms;android-33" "platform-tools"
 
+          # 終極修復：無論 Buildozer 怎麼找，強制在系統與它的預期快取目錄中建立 aidl 軟連結
+          sudo ln -sf /usr/bin/aidl $SDK_DIR/build-tools/33.0.2/aidl || true
+          mkdir -p ~/.buildozer/android/platform/android-sdk/build-tools/33.0.2/
+          ln -sf /usr/bin/aidl ~/.buildozer/android/platform/android-sdk/build-tools/33.0.2/aidl
+
+      # 調整 3：設定正確的環境變數，引導工具鏈
       - name: Build APK with Buildozer
         env:
           MAKEFLAGS: "-j2"
